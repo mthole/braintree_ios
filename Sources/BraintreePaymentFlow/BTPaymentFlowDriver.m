@@ -103,7 +103,8 @@ static BTPaymentFlowDriver *paymentFlowDriver;
         self.authenticationSession.presentationContextProvider = self;
     }
 
-    [self.authenticationSession start]; // TODO what if the start fails
+    self.isAuthenticationSessionStarted = [self.authenticationSession start];
+    // TODO analytics if start fails
 }
 
 - (void)onPaymentComplete:(BTPaymentFlowResult *)result error:(NSError *)error {

@@ -24,4 +24,9 @@
  */
 @property (nonatomic, strong, nullable) ASWebAuthenticationSession *authenticationSession;
 
+/**
+ Exposed for testing, for determining if ASWebAuthenticationSession was started
+ */
+@property (nonatomic, assign) BOOL isAuthenticationSessionStarted;
+
 @end
