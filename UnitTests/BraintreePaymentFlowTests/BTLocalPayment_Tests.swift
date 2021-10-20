@@ -344,6 +344,56 @@ class BTLocalPayment_UnitTests: XCTestCase {
 
 //        waitForExpectations(timeout: 2, handler: nil)
     }
+
+    func testTokenizePayPalAccount_whenPayPalPayLaterOffered_performsSwitchCorrectly() {
+        mockAPIClient.cannedConfigurationResponseBody = BTJSON(value: [ "paypalEnabled": true ])
+        let driver = BTPaymentFlowDriver(apiClient: mockAPIClient)
+
+        mockAPIClient.cannedResponseBody = BTJSON(value: ["paymentResource": [
+            "redirectUrl": "https://www.somebankurl.com",
+            "paymentToken": "123aaa-123-543-777",
+        ] ])
+
+        driver.startPaymentFlow(localPaymentRequest) { result, error in
+            XCTAssertNil(error)
+            XCTAssertNotNil(result)
+            guard let localPaymentResult = result as! BTLocalPaymentResult? else {return}
+
+            // TODO: get accurate data here; pump it in
+            XCTAssertEqual(localPaymentResult.clientMetadataID, "89d377ae78244447a3f78ada7d01b270")
+            XCTAssertEqual(localPaymentResult.type, "PayPalAccount")
+            XCTAssertEqual(localPaymentResult.payerID, "PCKXQCZ6J3YXU")
+            XCTAssertEqual(localPaymentResult.nonce, "f689056d-aee1-421e-9d10-f2c9b34d4d6f")
+//            paymentFinishedExpectation.fulfill()
+        }
+
+        // 1) WE POSTED TO v1/local_payments/create
+        XCTAssertEqual("v1/local_payments/create", mockAPIClient.lastPOSTPath)
+
+        XCTAssertNotNil(driver.authenticationSession)
+        XCTAssertTrue(driver.isAuthenticationSessionStarted)
+
+        // 3) Force the handle URL (skip app switch)
+        localPaymentRequest.handleOpen(URL(string: "www.fake.com")!)
+
+        // 2) WE POSTED TO paypal_cccounts
+
+        // Ensure the payment resource had the correct parameters
+        XCTAssertEqual("/v1/payment_methods/paypal_accounts", mockAPIClient.lastPOSTPath)
+        guard let lastPostParameters = mockAPIClient.lastPOSTParameters else {
+            XCTFail()
+            return
+        }
+
+        // TODO: assert on long list of proper post params
+        XCTAssertEqual(lastPostParameters["offer_pay_later"] as? Bool, true)
+
+        // Make sure analytics event was sent when switch occurred
+        let postedAnalyticsEvents = mockAPIClient.postedAnalyticsEvents
+
+        XCTAssertTrue(postedAnalyticsEvents.contains("ios.paypal-single-payment.webswitch.paylater.offered.started"))
+    }
+
 //
 //    func testStartPayment_cancelResult_callsCompletionBlock() {
 //        mockAPIClient.cannedConfigurationResponseBody = BTJSON(value: [ "paypalEnabled": true ])
