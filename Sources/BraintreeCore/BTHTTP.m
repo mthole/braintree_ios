@@ -22,6 +22,7 @@
 @property (nonatomic, strong) NSURL *baseURL;
 @property (nonatomic, copy) NSString *authorizationFingerprint;
 @property (nonatomic, copy) NSString *tokenizationKey;
+@property (nonatomic, strong) dispatch_queue_t cacheQueue;
 
 @end
 
@@ -36,6 +37,7 @@
     if (self) {
         self.baseURL = URL;
         self.cacheDateValidator = [[BTCacheDateValidator alloc] init];
+        self.cacheQueue = dispatch_queue_create("CONFIG_QUEUE", DISPATCH_QUEUE_SERIAL);
     }
     
     return self;
@@ -150,10 +152,15 @@
             return;
         }
         
-        NSCachedURLResponse *cachedResponse = [[NSURLCache sharedURLCache] cachedResponseForRequest:request];
-        
+        __block NSCachedURLResponse *cachedResponse;
+        dispatch_sync(self.cacheQueue, ^{
+            cachedResponse = [[NSURLCache sharedURLCache] cachedResponseForRequest:request];
+        });
+
         if ([self.cacheDateValidator isCacheInvalid:cachedResponse]) {
-            [[NSURLCache sharedURLCache] removeAllCachedResponses];
+            dispatch_sync(self.cacheQueue, ^{
+                [[NSURLCache sharedURLCache] removeAllCachedResponses];
+            });
             cachedResponse = nil;
         }
 
@@ -337,7 +344,10 @@
     BOOL successStatusCode = httpResponse.statusCode >= 200 && httpResponse.statusCode < 300;
     if (request != nil && shouldCache && successStatusCode) {
         NSCachedURLResponse *cachedURLResponse = [[NSCachedURLResponse alloc]initWithResponse:response data:data];
-        [[NSURLCache sharedURLCache] storeCachedResponse:cachedURLResponse forRequest:request];
+        
+        dispatch_sync(self.cacheQueue, ^{
+            [[NSURLCache sharedURLCache] storeCachedResponse:cachedURLResponse forRequest:request];
+        });
     }
 
     [self callCompletionBlock:completionBlock body:json response:httpResponse error:nil];
