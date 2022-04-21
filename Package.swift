@@ -81,7 +81,6 @@ let package = Package(
         .target(
             name: "BraintreeDataCollector",
             dependencies: ["BraintreeCore", "KountDataCollector"],
-            exclude: ["Kount"],
             publicHeadersPath: "Public"
         ),
         .target(
